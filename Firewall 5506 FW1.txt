@@ -1,0 +1,157 @@
+
+#============ Firewall 5506 ==================
+
+##============ Establece direcciones ip =================
+
+configure terminal
+
+interface GigabitEthernet 1/1
+nameif EXTERNA
+security-level 0
+ip address 192.168.1.2 255.255.255.252
+no shutdown
+exit
+
+interface GigabitEthernet 1/2
+nameif DMZ
+security-level 50
+ip address 192.168.2.1 255.255.255.0
+no shutdown
+exit
+
+interface GigabitEthernet 1/3
+nameif INTERNA
+security-level 100
+ip address 192.168.3.1 255.255.255.0
+no shutdown
+exit
+
+##============ Politica de comunicacion ============
+
+configure terminal
+class-map inspection_default
+match default-inspection-traffic
+exit
+policy-map global_policy
+class inspection_default
+inspect icmp
+exit
+service-policy global_policy global
+
+##============ Direccionamiento NAT =================
+
+configure terminal
+object network OBJ_INTERNA_EXTERNA
+subnet 192.168.3.0 255.255.255.0
+nat (INTERNA,EXTERNA) dynamic interface
+exit
+
+configure terminal
+object network OBJ_DMZ_EXTERNA
+subnet 192.168.2.0 255.255.255.0
+nat (DMZ,EXTERNA) dynamic interface
+exit
+
+configure terminal
+object network FTP_Server_2
+host 192.168.2.10
+nat (DMZ,EXTERNA) static 192.168.1.2
+exit
+
+#============ Enrutamiento ==================
+
+route EXTERNA 0.0.0.0 0.0.0.0 192.168.1.1
+
+
+# ============ ACL 
+
+
+access-list ACL_EXTERNA extended permit tcp any host 192.168.2.10 range 20 21
+access-list ACL_EXTERNA extended permit icmp any host 192.168.2.10
+access-group ACL_EXTERNA in interface EXTERNA
+
+
+access-list ACL_DMZ extended permit tcp host 192.168.2.10 any
+access-list ACL_DMZ extended permit icmp any any
+access-group ACL_DMZ in interface DMZ
+
+
+access-list ACL_INTERNA extended permit tcp host 192.168.3.10 host 192.168.2.10 range 20 21
+access-list ACL_INTERNA extended permit icmp any any
+access-list ACL_INTERNA extended deny ip any any
+access-group ACL_INTERNA in interface INTERNA
+
+#============ Guardar configuracion ==================
+write memory
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ============ ACL prueba
+
+configure terminal
+interface GigabitEthernet 1/1
+no shutdown
+interface GigabitEthernet 1/2
+no shutdown
+interface GigabitEthernet 1/3
+no shutdown
+exit
+
+
+
+no access-list TODO extended permit ip any any
+no access-group TODO in interface EXTERNA
+no access-group TODO in interface INTERNA
+no access-group TODO in interface DMZ
+
+
+#============ Reiniciar de Interfaces ==================
+
+configure terminal
+interface GigabitEthernet 1/1
+no nameif
+no security-level
+no ip address
+shutdown
+exit
+
+interface GigabitEthernet 1/2
+no nameif
+no security-level
+no ip address
+shutdown
+exit
+
+interface GigabitEthernet 1/3
+no nameif
+no security-level
+no ip address
+shutdown
+exit
+
+
+#============ Reiniciar de Fabrica ==================
+enable
+configure terminal
+write erase
+reload
+[y]
+
+enable
+configure terminal
+configure factory-default
+write memory
+reload
+[y]
